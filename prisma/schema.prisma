@@ -1,0 +1,174 @@
+// Ini adalah file skema Prisma Anda,
+// pelajari lebih lanjut di dokumen: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// 1. Core Entitas: User & Organization (Multi-tenant)
+// -----------------------------------------------------------------------------
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String       // Hashing menggunakan bcrypt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  memberships          Membership[]
+  sessions             Session[]
+  auditLogs            AuditLog[]
+  passwordResetTokens  PasswordResetToken[]
+}
+
+model Organization {
+  id          String       @id @default(uuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  memberships Membership[]
+  invitations Invitation[]
+  roles       Role[]
+  projects    Project[]
+  auditLogs   AuditLog[]
+  apiKeys     ApiKey[]
+}
+
+model Project {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// -----------------------------------------------------------------------------
+// 2. Role-Based Access Control (RBAC) & Permissions
+// -----------------------------------------------------------------------------
+model Role {
+  id             String           @id @default(uuid())
+  organizationId String?          // Null jika ini role bawaan sistem (owner, admin, dll), atau diisi jika custom role per org
+  name           String           // e.g., 'owner', 'admin', 'member', 'viewer'
+  createdAt      DateTime         @default(now())
+
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions    RolePermission[]
+  memberships    Membership[]
+  invitations    Invitation[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  action      String           @unique // e.g., 'users.read', 'projects.write', 'users.invite'
+  description String?
+
+  roles       RolePermission[]
+}
+
+// Tabel relasi Many-to-Many antara Role dan Permission
+model RolePermission {
+  roleId       String
+  permissionId String
+  conditions   Json?      // Aturan ABAC (e.g. {"resource.organizationId": "{{user.organizationId}}"})
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Membership {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  roleId         String
+  createdAt      DateTime     @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id])
+
+  // Seorang user hanya bisa memiliki satu membership di sebuah organisasi
+  @@unique([userId, organizationId])
+}
+
+// -----------------------------------------------------------------------------
+// 3. Autentikasi, Sesi, dan Undangan
+// -----------------------------------------------------------------------------
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  refreshTokenHash String   // Hanya simpan hash dari refresh token, bukan plain text!
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Invitation {
+  id             String       @id @default(uuid())
+  organizationId String
+  email          String
+  roleId         String
+  token          String       @unique // Token undangan yang memiliki masa kedaluwarsa
+  expiresAt      DateTime
+  status         String       @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id])
+  createdAt      DateTime     @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// 4. Audit & Observability
+// -----------------------------------------------------------------------------
+model AuditLog {
+  id             String        @id @default(uuid())
+  organizationId String?
+  userId         String?
+  action         String        // 'login', 'invite_sent', 'role_changed', 'permission_changed'
+  entityType     String?       // Entitas yang dipengaruhi: 'User', 'Role', 'Invitation'
+  entityId       String?
+  details        Json?         // Detail tambahan (misal: "role sebelumnya = member, role baru = admin")
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime      @default(now())
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+// -----------------------------------------------------------------------------
+// 5. Password Reset & API Keys
+// -----------------------------------------------------------------------------
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id             String       @id @default(uuid())
+  keyHash        String       @unique // Hash dari secret key yang hanya ditampilkan sekali
+  keyPrefix      String       // Beberapa karakter pertama key untuk identifikasi (misal: "m2m_aB3d...")
+  name           String       // Nama key untuk di UI
+  organizationId String
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
