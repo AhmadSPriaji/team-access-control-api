@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../utils/prisma.js";
 
+import { fetchWithCache } from "../utils/cache.js";
+
 /**
  * Middleware factory for Fine-Grained Permission-Based Access Control (PBAC).
  * @param requiredPermission The required permission action string (e.g., 'projects.write', 'users.invite')
@@ -28,24 +30,30 @@ export const requirePermission = (requiredPermission: string) => {
         return;
       }
 
-      // Query membership along with role and role's mapped permissions
-      const membership = await prisma.membership.findFirst({
-        where: {
-          userId,
-          organizationId: orgId,
-        },
-        include: {
-          role: {
+      // Gunakan Redis Cache untuk mengambil permissions!
+      const cacheKey = `permissions:${orgId}:${userId}`;
+      const membership = await fetchWithCache(
+        cacheKey,
+        async () => {
+          return await prisma.membership.findFirst({
+            where: {
+              userId,
+              organizationId: orgId,
+            },
             include: {
-              permissions: {
+              role: {
                 include: {
-                  permission: true,
+                  permissions: {
+                    include: {
+                      permission: true,
+                    },
+                  },
                 },
               },
             },
-          },
-        },
-      });
+          });
+        }
+      );
 
       // User is not a member of this organization
       if (!membership || !membership.role) {

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { prisma } from "../utils/prisma.js";
 import { logAudit } from "../utils/auditLogger.js";
+import { invalidateCache } from "../utils/cache.js";
 
 const ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
   owner: [
@@ -317,6 +318,9 @@ export const updateMemberRole = async (
       where: { id: membership.id },
       data: { roleId: newRole.id },
     });
+
+    // Invalidate cached permissions for this user in this organization
+    await invalidateCache(`permissions:${orgId}:${memberId}`);
 
     // 5. Audit Logging
     await logAudit({
