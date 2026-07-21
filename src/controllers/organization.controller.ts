@@ -3,41 +3,7 @@ import crypto from "crypto";
 import { prisma } from "../utils/prisma.js";
 import { logAudit } from "../utils/auditLogger.js";
 import { invalidateCache } from "../utils/cache.js";
-
-const ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
-  owner: [
-    "org.read",
-    "org.update",
-    "org.delete",
-    "users.read",
-    "users.invite",
-    "users.remove",
-    "users.role.update",
-    "projects.read",
-    "projects.write",
-    "billing.read",
-    "billing.update",
-    "audit_logs.read",
-    "apikeys.read",
-    "apikeys.create",
-    "apikeys.delete",
-  ],
-  admin: [
-    "org.read",
-    "org.update",
-    "users.read",
-    "users.invite",
-    "users.remove",
-    "users.role.update",
-    "projects.read",
-    "projects.write",
-    "billing.read",
-    "audit_logs.read",
-    "apikeys.read",
-  ],
-  member: ["org.read", "users.read", "projects.read", "projects.write"],
-  viewer: ["org.read", "users.read", "projects.read"],
-};
+import { ROLE_PERMISSIONS_MAP } from "../constants/permissions.js";
 
 /**
  * Controller to create a new Organization and set the creator as owner.
