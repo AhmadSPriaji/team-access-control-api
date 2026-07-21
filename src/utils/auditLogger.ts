@@ -35,14 +35,27 @@ export const logAudit = async (params: LogAuditParams): Promise<void> => {
       userAgent = req.headers["user-agent"] || undefined;
     }
 
+    let actualUserId = userId;
+    let actualDetails = { ...details };
+
+    // Handle Machine-to-Machine (API Key) requests where userId is pseudo 'm2m-{id}'
+    if (userId?.startsWith("m2m-")) {
+      actualUserId = undefined; // Do not use it for relation
+      actualDetails = {
+        ...actualDetails,
+        apiKeyId: userId.replace("m2m-", ""),
+        isM2M: true,
+      };
+    }
+
     await prisma.auditLog.create({
       data: {
         organizationId: organizationId ?? null,
-        userId: userId ?? null,
+        userId: actualUserId ?? null,
         action,
         entityType: entityType ?? null,
         entityId: entityId ?? null,
-        details: (details as Prisma.InputJsonValue) ?? null,
+        details: (Object.keys(actualDetails).length > 0 ? actualDetails : null) as Prisma.InputJsonValue,
         ipAddress: ipAddress ?? null,
         userAgent: userAgent ?? null,
       },

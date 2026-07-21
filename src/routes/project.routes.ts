@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/requireAuth.js";
+import { requireAuthOrApiKey } from "../middlewares/requireAuthOrApiKey.js";
 import { requirePermission } from "../middlewares/requirePermission.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
 import { createProjectSchema } from "../schemas/project.schema.js";
@@ -15,6 +16,7 @@ const router = Router({ mergeParams: true });
  *     tags: [Projects]
  *     security:
  *       - bearerAuth: []
+ *       - apiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: orgId
@@ -47,7 +49,7 @@ const router = Router({ mergeParams: true });
  */
 router.post(
   "/",
-  requireAuth,
+  requireAuthOrApiKey,
   requirePermission("projects.write"),
   validateRequest(createProjectSchema),
   createProject
@@ -61,6 +63,7 @@ router.post(
  *     tags: [Projects]
  *     security:
  *       - bearerAuth: []
+ *       - apiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: orgId
@@ -76,7 +79,7 @@ router.post(
  */
 router.get(
   "/",
-  requireAuth,
+  requireAuthOrApiKey,
   requirePermission("projects.read"),
   getProjects
 );

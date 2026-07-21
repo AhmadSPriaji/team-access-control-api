@@ -18,6 +18,9 @@ const ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "billing.read",
     "billing.update",
     "audit_logs.read",
+    "apikeys.read",
+    "apikeys.create",
+    "apikeys.delete",
   ],
   admin: [
     "org.read",
@@ -30,6 +33,7 @@ const ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "projects.write",
     "billing.read",
     "audit_logs.read",
+    "apikeys.read",
   ],
   member: ["org.read", "users.read", "projects.read", "projects.write"],
   viewer: ["org.read", "users.read", "projects.read"],

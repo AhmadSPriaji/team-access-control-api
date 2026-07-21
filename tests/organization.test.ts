@@ -1,5 +1,6 @@
 import request from "supertest";
 import app from "../src/app.js";
+import { prisma } from "../src/utils/prisma.js";
 
 describe("Organization & Invitation Endpoints", () => {
   const testUser = {
@@ -11,6 +12,7 @@ describe("Organization & Invitation Endpoints", () => {
   let accessToken: string;
   let organizationId: string;
   let invitationToken: string;
+  let memberUserId: string;
 
   beforeAll(async () => {
     // Register & Login to get token
@@ -87,5 +89,39 @@ describe("Organization & Invitation Endpoints", () => {
 
     expect(acceptRes.statusCode).toEqual(200);
     expect(acceptRes.body.data.membership).toHaveProperty("id");
+    memberUserId = acceptRes.body.data.membership.userId;
+  });
+
+  it("should list organizations for the user", async () => {
+    const res = await request(app)
+      .get("/api/organizations")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.data).toBeInstanceOf(Array);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    expect(res.body.data[0].name).toEqual("Test Corp");
+  });
+
+  it("should allow owner to update member role", async () => {
+    // find admin role in this organization
+    const adminRole = await prisma.role.findFirst({
+      where: {
+        organizationId: organizationId,
+        name: "admin",
+      },
+    });
+
+    if (!adminRole) {
+      throw new Error("Admin role not found");
+    }
+
+    const res = await request(app)
+      .put(`/api/organizations/${organizationId}/members/${memberUserId}/role`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ roleId: adminRole.id });
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.data.roleId).toEqual(adminRole.id);
   });
 });

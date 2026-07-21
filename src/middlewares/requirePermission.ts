@@ -30,42 +30,61 @@ export const requirePermission = (requiredPermission: string) => {
         return;
       }
 
-      // Gunakan Redis Cache untuk mengambil permissions!
-      const cacheKey = `permissions:${orgId}:${userId}`;
-      const membership = await fetchWithCache(
-        cacheKey,
-        async () => {
-          return await prisma.membership.findFirst({
-            where: {
-              userId,
-              organizationId: orgId,
-            },
-            include: {
-              role: {
-                include: {
-                  permissions: {
-                    include: {
-                      permission: true,
+      let rolePermissions: any[] = [];
+      let isApiKey = false;
+
+      // Machine-to-Machine (API Key) requests
+      if ((req as any).apiKey) {
+        const apiKey = (req as any).apiKey;
+        if (apiKey.organizationId !== orgId) {
+          res.status(403).json({
+            status: "fail",
+            message: "Forbidden: API Key does not belong to this organization",
+          });
+          return;
+        }
+        isApiKey = true;
+        rolePermissions = apiKey.role?.permissions || [];
+      } else {
+        // Gunakan Redis Cache untuk mengambil permissions!
+        const cacheKey = `permissions:${orgId}:${userId}`;
+        const membership = await fetchWithCache(
+          cacheKey,
+          async () => {
+            return await prisma.membership.findFirst({
+              where: {
+                userId,
+                organizationId: orgId,
+              },
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      include: {
+                        permission: true,
+                      },
                     },
                   },
                 },
               },
-            },
-          });
-        }
-      );
+            });
+          }
+        );
 
-      // User is not a member of this organization
-      if (!membership || !membership.role) {
-        res.status(403).json({
-          status: "fail",
-          message: "Forbidden: You are not a member of this organization",
-        });
-        return;
+        // User is not a member of this organization
+        if (!membership || !membership.role) {
+          res.status(403).json({
+            status: "fail",
+            message: "Forbidden: You are not a member of this organization",
+          });
+          return;
+        }
+
+        rolePermissions = membership.role.permissions;
       }
 
       // Find the specific RolePermission for the required action
-      const rolePermission = membership.role.permissions.find(
+      const rolePermission = rolePermissions.find(
         (rp) => rp.permission.action === requiredPermission
       );
 

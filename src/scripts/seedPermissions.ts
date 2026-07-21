@@ -13,6 +13,9 @@ const MASTER_PERMISSIONS = [
   { action: "billing.read", description: "View billing information" },
   { action: "billing.update", description: "Update billing and subscription (Owner only)" },
   { action: "audit_logs.read", description: "View organization audit logs" },
+  { action: "apikeys.read", description: "View API Keys" },
+  { action: "apikeys.create", description: "Create API Keys" },
+  { action: "apikeys.delete", description: "Delete API Keys" },
 ];
 
 const ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
@@ -29,6 +32,9 @@ const ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "billing.read",
     "billing.update",
     "audit_logs.read",
+    "apikeys.read",
+    "apikeys.create",
+    "apikeys.delete",
   ],
   admin: [
     "org.read",
@@ -41,6 +47,7 @@ const ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "projects.write",
     "billing.read",
     "audit_logs.read",
+    "apikeys.read",
   ],
   member: ["org.read", "users.read", "projects.read", "projects.write"],
   viewer: ["org.read", "users.read", "projects.read"],

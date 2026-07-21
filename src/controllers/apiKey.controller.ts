@@ -4,8 +4,24 @@ import { prisma } from "../utils/prisma.js";
 
 export const generateApiKey = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { name } = req.body;
+    const { name, roleName = "member" } = req.body;
     const orgId = req.params.orgId as string;
+
+    // Look up the role in the organization
+    const role = await prisma.role.findFirst({
+      where: {
+        organizationId: orgId,
+        name: roleName,
+      },
+    });
+
+    if (!role) {
+      res.status(400).json({
+        status: "fail",
+        message: `Role '${roleName}' not found in this organization`,
+      });
+      return;
+    }
 
     // Generate a secure random API key
     const rawKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
@@ -18,6 +34,7 @@ export const generateApiKey = async (req: Request, res: Response, next: NextFunc
         keyHash,
         keyPrefix,
         organizationId: orgId,
+        roleId: role.id,
       },
     });
 
