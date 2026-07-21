@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://admin:ahmadsiddiq@localhost:5432/team_access_test_db?schema=public"
+      REDIS_URL: "redis://localhost:6379"
 
     # Definisi services (Database & Redis) untuk GitHub Actions
     services:
@@ -54,15 +57,7 @@ jobs:
       run: npx prisma generate
 
     - name: Run Database Migrations
-      # Override DATABASE_URL untuk menggunakan container postgres dari Github Actions
-      env:
-        DATABASE_URL: "postgresql://admin:ahmadsiddiq@localhost:5432/team_access_test_db?schema=public"
       run: npx prisma migrate deploy
 
     - name: Run Tests
-      # dotenv akan otomatis membaca dari .env.test di source code (karena Jest di setting menggunakannya),
-      # tapi kita set env vars di sini sebagai fallback jika diperlukan
-      env:
-        DATABASE_URL: "postgresql://admin:ahmadsiddiq@localhost:5432/team_access_test_db?schema=public"
-        REDIS_URL: "redis://localhost:6379"
       run: npm run test
