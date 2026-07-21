@@ -57,25 +57,45 @@ export const getProjects = async (
 ): Promise<void> => {
   try {
     const orgId = req.params.orgId as string;
-    const cacheKey = `projects:org:${orgId}`;
+    
+    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+    const limit = Math.max(1, Math.min(100, parseInt((req.query.limit as string) || "20", 10)));
+    const skip = (page - 1) * limit;
 
-    const projects = await fetchWithCache(
+    const cacheKey = `projects:org:${orgId}:page:${page}:limit:${limit}`;
+
+    const [projects, total] = await fetchWithCache(
       cacheKey,
       async () => {
-        return await prisma.project.findMany({
-          where: {
-            organizationId: orgId,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        });
+        return await Promise.all([
+          prisma.project.findMany({
+            where: {
+              organizationId: orgId,
+            },
+            skip,
+            take: limit,
+            orderBy: {
+              createdAt: "desc",
+            },
+          }),
+          prisma.project.count({
+            where: { organizationId: orgId },
+          }),
+        ]);
       }
     );
+
+    const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
       status: "success",
       data: projects,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
     });
   } catch (error) {
     next(error);

@@ -1,0 +1,68 @@
+name: Node.js CI/CD
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # Definisi services (Database & Redis) untuk GitHub Actions
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: ahmadsiddiq
+          POSTGRES_DB: team_access_test_db
+        ports:
+          - 5432:5432
+        # Memastikan DB sudah siap sebelum test jalan
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Generate Prisma Client
+      run: npx prisma generate
+
+    - name: Run Database Migrations
+      # Override DATABASE_URL untuk menggunakan container postgres dari Github Actions
+      env:
+        DATABASE_URL: "postgresql://admin:ahmadsiddiq@localhost:5432/team_access_test_db?schema=public"
+      run: npx prisma migrate deploy
+
+    - name: Run Tests
+      # dotenv akan otomatis membaca dari .env.test di source code (karena Jest di setting menggunakannya),
+      # tapi kita set env vars di sini sebagai fallback jika diperlukan
+      env:
+        DATABASE_URL: "postgresql://admin:ahmadsiddiq@localhost:5432/team_access_test_db?schema=public"
+        REDIS_URL: "redis://localhost:6379"
+      run: npm run test
