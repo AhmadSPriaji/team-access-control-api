@@ -28,4 +28,5 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.$disconnect();
+  await redisClient.quit();
 });
